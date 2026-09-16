@@ -125,3 +125,20 @@ A production or controlled pilot implementation would add:
 - protected audit storage and key management;
 - security, privacy and regulatory review;
 - integration and rollback procedures.
+
+## 10. Public Browser Edition
+
+GitHub Pages hosts a client-side edition that requires no local Python or
+server. It adds:
+
+- a six-step guided engineering demonstration;
+- temperature, SOH and model-boundary time-series charts;
+- a temperature versus discharge-rate applicability map;
+- CSV, JSON and Excel import with local validation;
+- role-based demonstration controls;
+- local audit records and shareable case links;
+- model cards, transparent equations and primary references;
+- installable PWA behaviour and offline caching.
+
+The public edition keeps data in the visitor's browser. It does not claim
+production authentication, server-side persistence or regulatory approval.

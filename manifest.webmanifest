@@ -1,0 +1,17 @@
+{
+  "name": "CADTF Battery Evidence Prototype",
+  "short_name": "CADTF",
+  "description": "Traceable battery-health evidence and maintenance review prototype",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef1ef",
+  "theme_color": "#163244",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

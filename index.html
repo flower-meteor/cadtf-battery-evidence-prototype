@@ -8,11 +8,15 @@
       content="CADTF battery-health evidence prototype"
     />
     <title>CADTF Battery Evidence Prototype</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#163244" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23173244'/%3E%3Cpath d='M43 20a16 16 0 1 0 3 18h-8a8 8 0 1 1-2-14z' fill='%2368c69b'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2.0.0" />
   </head>
   <body>
     <div class="app-shell">
@@ -29,11 +33,17 @@
           <button class="nav-button active" data-page="overview">
             <i data-lucide="layout-dashboard"></i><span>Overview</span>
           </button>
+          <button class="nav-button" data-page="guided">
+            <i data-lucide="route"></i><span>Guided Demo</span>
+          </button>
           <button class="nav-button" data-page="fleet">
             <i data-lucide="plane"></i><span>Fleet &amp; Configuration</span>
           </button>
           <button class="nav-button" data-page="measurement">
             <i data-lucide="activity"></i><span>Measurement &amp; Estimate</span>
+          </button>
+          <button class="nav-button" data-page="data-lab">
+            <i data-lucide="file-spreadsheet"></i><span>Data Lab</span>
           </button>
           <button class="nav-button" data-page="evidence">
             <i data-lucide="link-2"></i><span>Evidence &amp; Review</span>
@@ -44,6 +54,9 @@
           </button>
           <button class="nav-button" data-page="dictionary">
             <i data-lucide="book-open"></i><span>Dictionary &amp; Export</span>
+          </button>
+          <button class="nav-button" data-page="methods">
+            <i data-lucide="flask-conical"></i><span>Model &amp; Methods</span>
           </button>
         </nav>
 
@@ -63,6 +76,13 @@
             <h1 id="page-title">System overview</h1>
           </div>
           <div class="topbar-actions">
+            <label class="compact-control">
+              <span data-ui-label="Current role">Current role</span>
+              <select id="role-select" aria-label="Current role"></select>
+            </label>
+            <button class="language-toggle" id="language-toggle" type="button">
+              EN / 中文
+            </button>
             <span class="status-chip" id="service-status">
               <i data-lucide="circle-check"></i> Browser prototype ready
             </span>
@@ -76,12 +96,26 @@
         </section>
 
         <div id="page-content"></div>
+        <footer class="app-footer">
+          <span>CADTF browser edition v2.0</span>
+          <span>Synthetic demonstration only</span>
+          <span>Source: GitHub Pages</span>
+        </footer>
       </main>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="lucide.min.js"></script>
-    <script src="app.js"></script>
+    <script src="lucide.min.js?v=2.0.0"></script>
+    <script src="xlsx.full.min.js?v=2.0.0"></script>
+    <script src="content.js?v=2.0.0"></script>
+    <script src="app.js?v=2.0.0"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

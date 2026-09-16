@@ -144,18 +144,84 @@ const APP = {
 
 const PAGE_TITLES = {
   overview: "System overview",
+  guided: "Guided Demo",
   fleet: "Fleet & Configuration",
   measurement: "Measurement & Estimate",
+  "data-lab": "Data Lab",
   evidence: "Evidence & Review",
   pilot: "Pilot Evaluation",
   dictionary: "Dictionary & Export",
+  methods: "Model & Methods",
 };
+
+const CONTENT = window.CADTF_CONTENT;
 
 const state = {
   page: "overview",
   estimates: {},
   reviews: loadReviews(),
+  lang: loadValue("cadtfLang", "en"),
+  role: loadValue("cadtfRole", "maintenance"),
+  demoStep: Number(loadValue("cadtfDemoStep", "0")),
+  importedRows: null,
+  evidenceHistory: loadValue("cadtfEvidenceHistory", {}),
+  audit: loadValue("cadtfAudit", []),
 };
+
+function loadValue(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function saveValue(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function t(text) {
+  if (state.lang !== "zh") return text;
+  return CONTENT.translations.zh[text] || text;
+}
+
+function translateDom() {
+  if (state.lang !== "zh") return;
+  const root = document.getElementById("page-content");
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const original = node.nodeValue;
+    const trimmed = original.trim();
+    if (!trimmed) return;
+    const translated = t(trimmed);
+    if (translated !== trimmed) {
+      node.nodeValue = original.replace(trimmed, translated);
+    }
+  });
+}
+
+function currentRole() {
+  return (
+    CONTENT.roles.find((role) => role.id === state.role) || CONTENT.roles[0]
+  );
+}
+
+function recordAudit(eventType, packId, details) {
+  state.audit.unshift({
+    id: `AUD-${Date.now().toString(36).toUpperCase()}`,
+    eventType,
+    packId,
+    details,
+    role: state.role,
+    createdAt: new Date().toISOString(),
+  });
+  state.audit = state.audit.slice(0, 100);
+  saveValue("cadtfAudit", state.audit);
+}
 
 function loadReviews() {
   try {
@@ -183,7 +249,12 @@ function clamp(value, lower, upper) {
 }
 
 function statusBadge(status) {
-  return `<span class="status ${status}">${status.replace("_", " ")}</span>`;
+  const labels = {
+    valid: "Valid",
+    review_required: "Review required",
+    blocked: "Blocked",
+  };
+  return `<span class="status ${status}">${escapeHtml(t(labels[status] || status))}</span>`;
 }
 
 function formatPercent(value) {
@@ -404,7 +475,8 @@ async function sha256(value) {
 async function buildEvidencePackage(pack, measurement = pack.measurement) {
   const estimate = calculateEstimate(pack, measurement);
   const model = getModel(pack);
-  const createdAt = new Date().toISOString();
+  const createdAt =
+    measurement.measuredAt || "2026-09-16T00:00:00.000Z";
   const payload = {
     package_version: "1.0",
     physical_asset: {
@@ -473,6 +545,11 @@ function renderOverview() {
     "100.0%",
   ]);
   return `
+    <section class="panel soft" style="margin-bottom:18px">
+      <div class="section-heading"><h2>${t("Guided demonstration")}</h2><p>${t("Run complete workflow")}</p></div>
+      <p class="muted">Follow a six-step case from a valid estimate through configuration change, blocked advice, evidence review and export.</p>
+      <div class="button-row"><button class="button primary" id="start-guided-demo"><i data-lucide="route"></i>${t("Start guided demo")}</button></div>
+    </section>
     <div class="metric-grid">
       ${metric("Aircraft", "2")}
       ${metric("Battery packs", String(APP.packs.length))}
@@ -491,7 +568,7 @@ function renderOverview() {
       <section class="panel soft">
         <div class="section-heading">
           <h2>Review queue</h2>
-          <p>${pending.length} open</p>
+          <p>${pending.length} ${t("open")}</p>
         </div>
         ${
           pending.length
@@ -500,7 +577,7 @@ function renderOverview() {
                   ({ pack, result }) => `
                     <div class="chain-item">
                       <span class="chain-index">!</span>
-                      <div><strong>${escapeHtml(pack.id)}</strong><br><span class="muted small">${escapeHtml(result.advisory)}</span></div>
+                      <div><strong>${escapeHtml(pack.id)}</strong><br><span class="muted small">${escapeHtml(t(result.advisory))}</span></div>
                       ${statusBadge(result.validation.status)}
                     </div>`,
                 )
@@ -590,7 +667,7 @@ function renderFleet() {
         </form>
         <div id="fleet-result" class="advisory ${result.validation.status === "valid" ? "" : result.validation.status === "blocked" ? "error" : "warning"}" style="margin-top:14px">
           ${statusBadge(result.validation.status)}
-          <p>${escapeHtml(result.advisory)}</p>
+          <p>${escapeHtml(t(result.advisory))}</p>
         </div>
       </section>
     </div>`;
@@ -625,7 +702,8 @@ function renderMeasurement() {
       <section class="panel soft" id="estimate-result">
         ${estimateResultHtml(pack, result)}
       </section>
-    </div>`;
+    </div>
+    ${measurementVisuals(pack)}`;
 }
 
 function estimateResultHtml(pack, result) {
@@ -645,7 +723,7 @@ function estimateResultHtml(pack, result) {
     </div>
     <div class="advisory ${result.validation.status === "valid" ? "" : result.validation.status === "blocked" ? "error" : "warning"}" style="margin-top:14px">
       ${statusBadge(result.validation.status)}
-      <p>${escapeHtml(result.advisory)}</p>
+      <p>${escapeHtml(t(result.advisory))}</p>
     </div>
     ${
       result.validation.issues.length
@@ -661,6 +739,141 @@ function estimateResultHtml(pack, result) {
 
 function barRow(label, value, color) {
   return `<div class="bar-row"><span>${escapeHtml(label)}</span><div class="bar-track"><div class="bar-fill" style="width:${clamp(value, 0, 100)}%;background:${color}"></div></div><strong>${formatPercent(value)}</strong></div>`;
+}
+
+function lineChartSvg(series, key, color, boundary, yLabel) {
+  const width = 760;
+  const height = 260;
+  const margin = { left: 52, right: 20, top: 22, bottom: 38 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const values = series.map((item) => item[key]);
+  const rawMin = Math.min(...values, boundary ?? Math.min(...values));
+  const rawMax = Math.max(...values, boundary ?? Math.max(...values));
+  const span = Math.max(rawMax - rawMin, 1);
+  const min = rawMin - span * 0.08;
+  const max = rawMax + span * 0.08;
+  const x = (index) =>
+    margin.left + (index / Math.max(series.length - 1, 1)) * plotWidth;
+  const y = (value) =>
+    margin.top + ((max - value) / Math.max(max - min, 1)) * plotHeight;
+  const path = series
+    .map(
+      (item, index) =>
+        `${index === 0 ? "M" : "L"} ${x(index).toFixed(2)} ${y(item[key]).toFixed(2)}`,
+    )
+    .join(" ");
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const value = min + ((max - min) * index) / 4;
+    const py = y(value);
+    return `<line x1="${margin.left}" y1="${py}" x2="${width - margin.right}" y2="${py}" stroke="#dce3e6" stroke-width="1"/><text x="${margin.left - 8}" y="${py + 4}" text-anchor="end" fill="#65767f" font-size="11">${value.toFixed(1)}</text>`;
+  }).join("");
+  const boundaryLine =
+    boundary === undefined
+      ? ""
+      : `<line x1="${margin.left}" y1="${y(boundary)}" x2="${width - margin.right}" y2="${y(boundary)}" stroke="#a63c3c" stroke-width="2" stroke-dasharray="7 5"/><text x="${width - margin.right}" y="${y(boundary) - 7}" text-anchor="end" fill="#8b2929" font-size="11" font-weight="700">validation limit</text>`;
+  return `
+    <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(yLabel)}">
+      ${grid}
+      <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#81929a" stroke-width="1.2"/>
+      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#81929a" stroke-width="1.2"/>
+      ${boundaryLine}
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <text x="${width / 2}" y="${height - 8}" text-anchor="middle" fill="#65767f" font-size="11">elapsed time (min)</text>
+      <text x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle" fill="#65767f" font-size="11">${escapeHtml(yLabel)}</text>
+    </svg>`;
+}
+
+function domainMapSvg(pack) {
+  const model = getModel(pack);
+  const width = 760;
+  const height = 300;
+  const margin = { left: 62, right: 24, top: 24, bottom: 52 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const tempMin = model.tempMin - 6;
+  const tempMax = model.tempMax + 8;
+  const rateMax = model.maxDischarge + 0.7;
+  const x = (temp) =>
+    margin.left + ((temp - tempMin) / (tempMax - tempMin)) * plotWidth;
+  const y = (rate) =>
+    margin.top + ((rateMax - rate) / rateMax) * plotHeight;
+  const points = [];
+  for (let index = 0; index < 52; index += 1) {
+    const temp =
+      tempMin +
+      0.5 +
+      ((index * 19) % 100) / 100 * (tempMax - tempMin - 1);
+    const rate =
+      0.15 + ((index * 31) % 100) / 100 * (rateMax - 0.15);
+    const inside =
+      temp >= model.tempMin &&
+      temp <= model.tempMax &&
+      rate <= model.maxDischarge;
+    const near =
+      !inside ||
+      temp >= model.tempMax - 2 ||
+      temp <= model.tempMin + 2 ||
+      rate >= model.maxDischarge * 0.95;
+    points.push({
+      temp,
+      rate,
+      state: inside ? (near ? "review" : "valid") : "blocked",
+    });
+  }
+  const circles = points
+    .map((point) => {
+      const color =
+        point.state === "valid"
+          ? "#277d6b"
+          : point.state === "review"
+            ? "#b27616"
+            : "#a63c3c";
+      return `<circle cx="${x(point.temp).toFixed(1)}" cy="${y(point.rate).toFixed(1)}" r="5" fill="${color}" opacity="0.82"><title>${point.temp.toFixed(1)} C, ${point.rate.toFixed(2)} C, ${point.state}</title></circle>`;
+    })
+    .join("");
+  const validWidth = x(model.tempMax) - x(model.tempMin);
+  const validHeight = y(0) - y(model.maxDischarge);
+  return `
+    <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Model applicability map">
+      <rect x="${x(model.tempMin)}" y="${y(model.maxDischarge)}" width="${validWidth}" height="${validHeight}" fill="#e3f1eb" stroke="#75aa92" stroke-width="1.5"/>
+      <line x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" stroke="#81929a"/>
+      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" stroke="#81929a"/>
+      ${circles}
+      <text x="${width / 2}" y="${height - 14}" text-anchor="middle" fill="#65767f" font-size="12">temperature (C)</text>
+      <text x="16" y="${height / 2}" transform="rotate(-90 16 ${height / 2})" text-anchor="middle" fill="#65767f" font-size="12">discharge rate (C)</text>
+      <text x="${x(model.tempMin) + 8}" y="${y(model.maxDischarge) + 18}" fill="#215f49" font-size="11" font-weight="700">validated domain</text>
+    </svg>`;
+}
+
+function measurementVisuals(pack) {
+  const telemetry = CONTENT.telemetryFor(pack.id);
+  const model = getModel(pack);
+  return `
+    <section class="section">
+      <div class="section-heading"><h2>${t("Measurement time series")}</h2><p>${escapeHtml(pack.measurement.batch)} · 8-hour synthetic profile</p></div>
+      <div class="two-column">
+        <div class="panel">
+          ${lineChartSvg(telemetry, "temperature", "#b27616", model.tempMax, "temperature (C)")}
+          <div class="chart-legend"><span class="legend-item"><span class="legend-line alt"></span>temperature</span><span class="legend-item"><span class="legend-line boundary"></span>validated limit</span></div>
+        </div>
+        <div class="panel">
+          ${lineChartSvg(telemetry, "soh", "#2a6f97", undefined, "estimated SOH (%)")}
+          <div class="chart-legend"><span class="legend-item"><span class="legend-line"></span>estimated state of health</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-heading"><h2>${t("Model applicability map")}</h2><p>Temperature and discharge-rate boundary</p></div>
+      <div class="panel">
+        ${domainMapSvg(pack)}
+        <div class="chart-legend">
+          <span class="legend-item"><span class="tag" style="background:#dff2e7;color:#1b6749">valid</span></span>
+          <span class="legend-item"><span class="tag" style="background:#fff0c4;color:#765100">near limit</span></span>
+          <span class="legend-item"><span class="tag" style="background:#f7dddd;color:#8b2929">blocked</span></span>
+        </div>
+      </div>
+    </section>`;
 }
 
 function renderEvidence() {
@@ -695,10 +908,16 @@ function renderEvidence() {
         </div>
         <div class="button-row">
           <button class="button primary" id="download-evidence"><i data-lucide="download"></i>Download evidence JSON</button>
+          <button class="button" id="copy-case-link"><i data-lucide="share-2"></i>${t("Copy share link")}</button>
         </div>
       </section>
       <section class="panel soft">
         <div class="section-heading"><h2>Review disposition</h2><p>${result.validation.status}</p></div>
+        ${
+          currentRole().canReview
+            ? ""
+            : `<div class="role-warning">${t("Protected actions")}: ${escapeHtml(t("Current role"))} = ${escapeHtml(t(currentRole().label))}. Review recording is disabled.</div>`
+        }
         <form id="review-form" class="form-grid">
           <div class="field full"><label for="reviewer">Reviewer role or identifier</label><input id="reviewer" name="reviewer" value="Authorised reviewer" /></div>
           <div class="field full"><label for="disposition">Disposition</label><select id="disposition" name="disposition">
@@ -709,7 +928,7 @@ function renderEvidence() {
           </select></div>
           <div class="field full"><label for="rationale">Rationale</label><textarea id="rationale" name="rationale" placeholder="State the evidence considered and any follow-up action."></textarea></div>
           <div class="field full"><label for="signature">Authorisation reference</label><input id="signature" name="signature" value="AUTH-DEMO" /></div>
-          <div class="button-row field full"><button type="submit" class="button primary"><i data-lucide="pen-line"></i>Record review</button></div>
+          <div class="button-row field full"><button type="submit" class="button primary" ${currentRole().canReview ? "" : "disabled"}><i data-lucide="pen-line"></i>${t("Record review")}</button></div>
         </form>
         ${
           review
@@ -717,7 +936,347 @@ function renderEvidence() {
             : ""
         }
       </section>
+    </div>
+    <section class="section">
+      <div class="section-heading"><h2>${t("Evidence comparison")}</h2><p>${t("Changed fields")}</p></div>
+      <div class="package-compare">
+        <div class="package-box">
+          <h3>${t("Previous package")}</h3>
+          <p id="previous-package-hash" class="hash">${escapeHtml(state.evidenceHistory[pack.id] || t("No previous package"))}</p>
+        </div>
+        <div class="package-box">
+          <h3>${t("Current package")}</h3>
+          <p id="current-package-hash" class="hash">Calculating...</p>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-heading"><h2>${t("Audit trail")}</h2><p>${state.audit.length} events</p></div>
+      <div class="panel">
+        ${
+          state.audit.length
+            ? state.audit
+                .filter(
+                  (event) =>
+                    event.packId === pack.id || event.packId === "MULTI",
+                )
+                .slice(0, 15)
+                .map(
+                  (event) => `
+                    <div class="audit-entry">
+                      <time>${escapeHtml(event.createdAt)}</time>
+                      <div><strong>${escapeHtml(event.eventType)}</strong><br><span class="muted small">${escapeHtml(event.packId)} · ${escapeHtml(event.role)}</span></div>
+                      <span class="tag">${escapeHtml(event.id)}</span>
+                    </div>`,
+                )
+                .join("") || `<div class="empty-state">${t("No review records")}</div>`
+            : `<div class="empty-state">${t("No review records")}</div>`
+        }
+      </div>
+    </section>`;
+}
+
+function renderGuided() {
+  const steps = [
+    {
+      title: "Normal battery case",
+      text: "Start with BAT-001. Its measurement is inside the validated temperature, rate and cycle domain.",
+      page: "measurement",
+      pack: "BAT-001",
+      checks: ["Configuration CONF-A is validated", "Temperature remains below 45 C", "Evidence package is complete"],
+    },
+    {
+      title: "Configuration change",
+      text: "Change the configuration to CONF-C. The system should stop treating the old validation evidence as automatically applicable.",
+      page: "fleet",
+      pack: "BAT-001",
+      checks: ["Configuration revision changes", "Review finding is created", "Advice is withheld until review"],
+    },
+    {
+      title: "Blocked high-stress case",
+      text: "Open BAT-002 and observe a battery that exceeds temperature, discharge-rate and cycle limits.",
+      page: "measurement",
+      pack: "BAT-002",
+      checks: ["Temperature exceeds the model domain", "Discharge rate and cycles exceed limits", "Unsupported advisory is suppressed"],
+    },
+    {
+      title: "Evidence trace",
+      text: "Inspect how the estimate links to the pack, aircraft, configuration, software, model, measurement source and validation status.",
+      page: "evidence",
+      pack: "BAT-002",
+      checks: ["Physical asset is linked", "Source hash and model version are present", "Blocked result cannot be accepted"],
+    },
+    {
+      title: "Authorised disposition",
+      text: "Choose a role and record how a reviewer would reject, request data or escalate the blocked estimate.",
+      page: "evidence",
+      pack: "BAT-002",
+      checks: ["Review decision is captured", "Role and time are recorded locally", "Audit trail remains exportable"],
+    },
+    {
+      title: "Verification and export",
+      text: "Review the synthetic pilot evaluation, evidence dictionary and downloadable case record.",
+      page: "pilot",
+      pack: "BAT-002",
+      checks: ["Evaluation metrics are visible", "Dictionary is bilingual", "Case data can be exported"],
+    },
+  ];
+  const step = steps[clamp(state.demoStep, 0, steps.length - 1)];
+  return `
+    <div class="stepper">
+      ${steps
+        .map(
+          (_, index) =>
+            `<div class="step ${index === state.demoStep ? "active" : index < state.demoStep ? "done" : ""}">${t("Step")} ${index + 1}</div>`,
+        )
+        .join("")}
+    </div>
+    <div class="demo-stage">
+      <section class="panel">
+        <div class="demo-hero">
+          <span class="demo-number">${state.demoStep + 1}</span>
+          <div><h2>${escapeHtml(step.title)}</h2><p class="muted">${escapeHtml(step.text)}</p></div>
+        </div>
+        <div class="notice">${statusBadge(
+          step.pack === "BAT-002" ? "blocked" : "valid",
+        )} Selected case: <strong>${escapeHtml(step.pack)}</strong></div>
+        <div class="button-row">
+          <button class="button primary" id="demo-open"><i data-lucide="external-link"></i>${t("Open workflow")}</button>
+          <button class="button" id="demo-prev" ${state.demoStep === 0 ? "disabled" : ""}><i data-lucide="arrow-left"></i>${t("Previous")}</button>
+          <button class="button" id="demo-next" ${state.demoStep === steps.length - 1 ? "disabled" : ""}>${t("Next step")}<i data-lucide="arrow-right"></i></button>
+          <button class="button" id="demo-restart"><i data-lucide="rotate-ccw"></i>${t("Restart")}</button>
+        </div>
+      </section>
+      <section class="panel soft">
+        <div class="section-heading"><h3>${t("Protected actions")}</h3><p>${escapeHtml(currentRole().label)}</p></div>
+        <ul class="checklist">
+          ${step.checks
+            .map(
+              (item) =>
+                `<li><i data-lucide="check-circle-2"></i><span>${escapeHtml(item)}</span></li>`,
+            )
+            .join("")}
+        </ul>
+      </section>
     </div>`;
+}
+
+function validateImportedRows(rows) {
+  const required = CONTENT.dataSchema;
+  const findings = [];
+  const validRows = [];
+  rows.forEach((row, index) => {
+    const rowFindings = [];
+    required.forEach((field) => {
+      if (
+        field !== "notes" &&
+        (row[field] === undefined || row[field] === null || row[field] === "")
+      ) {
+        rowFindings.push(`missing ${field}`);
+      }
+    });
+    const pack = getPack(String(row.pack_id || ""));
+    if (!pack || pack.id !== row.pack_id) {
+      rowFindings.push("unknown pack_id");
+    }
+    [
+      "capacity_ah",
+      "resistance_mohm",
+      "min_temp_c",
+      "max_temp_c",
+      "charge_c_rate",
+      "discharge_c_rate",
+      "cycles",
+    ].forEach((field) => {
+      if (row[field] !== undefined && Number.isNaN(Number(row[field]))) {
+        rowFindings.push(`${field} is not numeric`);
+      }
+    });
+    if (
+      row.min_temp_c !== undefined &&
+      row.max_temp_c !== undefined &&
+      Number(row.min_temp_c) > Number(row.max_temp_c)
+    ) {
+      rowFindings.push("minimum temperature exceeds maximum");
+    }
+    const output = {
+      row_number: index + 2,
+      pack_id: row.pack_id || "",
+      status: rowFindings.length ? "findings" : "valid",
+      findings: rowFindings.join("; "),
+    };
+    findings.push(output);
+    if (!rowFindings.length) validRows.push(row);
+  });
+  return { findings, validRows };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+    if (character === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += character;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some((value) => value !== "")) rows.push(row);
+  if (!rows.length) return [];
+  const headers = rows.shift().map((header) => header.replace(/^\uFEFF/, ""));
+  return rows.map((values) =>
+    Object.fromEntries(headers.map((header, index) => [header, values[index]])),
+  );
+}
+
+async function parseDataFile(file) {
+  const extension = file.name.split(".").pop().toLowerCase();
+  if (extension === "json") {
+    const parsed = JSON.parse(await file.text());
+    return Array.isArray(parsed) ? parsed : parsed.records || [];
+  }
+  if (extension === "csv") {
+    return parseCsv(await file.text());
+  }
+  if (["xlsx", "xls"].includes(extension)) {
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  }
+  throw new Error("Unsupported file type");
+}
+
+function renderDataLab() {
+  const validation = state.importedRows
+    ? validateImportedRows(state.importedRows)
+    : null;
+  return `
+    <section class="section">
+      <div class="section-heading"><h2>${t("Data import and validation")}</h2><p>CSV · JSON · Excel</p></div>
+      <div class="two-column">
+        <div class="panel">
+          <div class="drop-zone" id="data-drop-zone">
+            <div>
+              <i data-lucide="upload-cloud" style="width:30px;height:30px"></i>
+              <p><strong>${t("Choose measurement file")}</strong></p>
+              <p class="small">CSV, JSON, XLSX or XLS. Files stay in this browser.</p>
+              <input id="data-file" type="file" accept=".csv,.json,.xlsx,.xls" hidden />
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="button primary" id="choose-data-file"><i data-lucide="folder-open"></i>${t("Choose measurement file")}</button>
+            <button class="button" id="download-data-template"><i data-lucide="download"></i>${t("Download template")}</button>
+          </div>
+          <p class="small muted" style="margin-top:12px"><strong>${t("Expected columns")}</strong>: ${CONTENT.dataSchema.join(", ")}</p>
+        </div>
+        <div class="panel soft">
+          <div class="section-heading"><h3>${t("Data quality summary")}</h3></div>
+          ${
+            validation
+              ? `<div class="quality-grid">
+                  ${metric(t("Loaded rows"), String(state.importedRows.length))}
+                  ${metric(t("Valid rows"), String(validation.validRows.length))}
+                  ${metric(t("Rows with findings"), String(validation.findings.filter((row) => row.status === "findings").length))}
+                </div>`
+              : '<div class="empty-state">Load a file to run local validation.</div>'
+          }
+        </div>
+      </div>
+    </section>
+    ${
+      validation
+        ? `<section class="section">
+            <div class="section-heading"><h2>Validation findings</h2><p>No data leaves the browser</p></div>
+            ${table(
+              ["Row", "Pack", "Status", "Findings"],
+              validation.findings.map((row) => [
+                String(row.row_number),
+                escapeHtml(row.pack_id),
+                `<span class="status ${row.status === "valid" ? "valid" : "review_required"}">${escapeHtml(row.status)}</span>`,
+                escapeHtml(row.findings || "No findings"),
+              ]),
+            )}
+            <div class="button-row">
+              ${
+                validation.validRows.length
+                  ? `<label class="compact-control"><span>${t("Apply selected row")}</span><select id="import-row-select">${validation.validRows
+                      .map((row, index) => `<option value="${row.row_number}">Row ${row.row_number} · ${escapeHtml(row.pack_id)}</option>`)
+                      .join("")}</select></label>`
+                  : ""
+              }
+              <button class="button primary" id="apply-import-row" ${validation.validRows.length ? "" : "disabled"}><i data-lucide="check"></i>${t("Apply selected row")}</button>
+              <button class="button" id="download-validated-data"><i data-lucide="download"></i>Download validated JSON</button>
+            </div>
+          </section>`
+        : ""
+    }`;
+}
+
+function renderMethods() {
+  const pack = getPack();
+  const model = getModel(pack);
+  return `
+    <section class="section">
+      <div class="section-heading"><h2>${t("Model card")}</h2><p>${escapeHtml(pack.id)}</p></div>
+      <div class="two-column">
+        <div class="panel">
+          <div class="metric-strip">
+            ${metric(t("Model version"), escapeHtml(model.id))}
+            ${metric(t("Validated temperature"), `${model.tempMin} to ${model.tempMax} C`)}
+            ${metric(t("Validated rates"), `${model.maxCharge.toFixed(1)} / ${model.maxDischarge.toFixed(1)} C`)}
+            ${metric(t("Cycle limit"), String(model.maxCycles))}
+          </div>
+          <p><strong>${t("Algorithm")}:</strong> capacity-resistance weighted estimator with model-domain gating.</p>
+          <p><strong>${t("Known limitations")}:</strong> synthetic and educational; not trained or validated on a real aircraft battery pack.</p>
+          <p><strong>${t("Not permitted")}:</strong> dispatch, airworthiness approval, maintenance release, thermal-runaway prevention or flight-control use.</p>
+        </div>
+        <div class="panel soft">
+          <div class="section-heading"><h3>${t("Validation boundary")}</h3></div>
+          <ul class="checklist">
+            <li><i data-lucide="check-circle-2"></i><span>Chemistry must match the model domain.</span></li>
+            <li><i data-lucide="check-circle-2"></i><span>Temperature and rates must remain inside validated limits.</span></li>
+            <li><i data-lucide="check-circle-2"></i><span>Configuration and software changes create review findings.</span></li>
+            <li><i data-lucide="check-circle-2"></i><span>Invalid calibration blocks release of unsupported advice.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-heading"><h2>Methods</h2><p>Transparent equations</p></div>
+      <div class="three-column">
+        <div class="panel"><h3>State of health</h3><div class="method-equation">SOH = 0.75 × C<sub>health</sub> + 0.25 × R<sub>health</sub></div><p class="muted small">Capacity and resistance health are normalised by rated capacity and baseline resistance.</p></div>
+        <div class="panel"><h3>Uncertainty</h3><div class="method-equation">u = u<sub>base</sub> + u<sub>cycles</sub> + u<sub>temperature</sub> + u<sub>records</sub></div><p class="muted small">Uncertainty increases with ageing, boundary proximity, calibration and unresolved review findings.</p></div>
+        <div class="panel"><h3>Evidence integrity</h3><div class="method-equation">H = SHA-256(canonical JSON)</div><p class="muted small">The package hash covers physical asset, input, model, validation and estimate records.</p></div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-heading"><h2>${t("Methods and references")}</h2><p>Primary public sources</p></div>
+      <ol class="reference-list">
+        ${CONTENT.references
+          .map(
+            (reference) =>
+              `<li><strong>${escapeHtml(reference.id)}</strong> (${reference.year}). <a href="${reference.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(reference.label)}</a></li>`,
+          )
+          .join("")}
+      </ol>
+    </section>`;
 }
 
 function renderPilot() {
@@ -772,6 +1331,7 @@ function renderDictionary() {
       <div class="button-row">
         <button class="button" id="download-dictionary-json"><i data-lucide="download"></i>Download JSON</button>
         <button class="button" id="download-dictionary-csv"><i data-lucide="download"></i>Download CSV</button>
+        <button class="button" id="download-dictionary-xlsx"><i data-lucide="file-spreadsheet"></i>${t("Download Excel workbook")}</button>
       </div>
     </section>
     <section class="section">
@@ -780,6 +1340,7 @@ function renderDictionary() {
         <p>The export contains model boundaries, battery assets, measurements, estimates and review records currently held in your browser.</p>
         <div class="button-row">
           <button class="button primary" id="download-all-json"><i data-lucide="download"></i>Download complete JSON</button>
+          <button class="button" id="download-all-xlsx"><i data-lucide="file-spreadsheet"></i>${t("Download Excel workbook")}</button>
           <button class="button danger" id="reset-browser-data"><i data-lucide="refresh-cw"></i>Reset local reviews</button>
         </div>
       </div>
@@ -788,22 +1349,64 @@ function renderDictionary() {
 
 function pageHtml(page) {
   if (page === "overview") return renderOverview();
+  if (page === "guided") return renderGuided();
   if (page === "fleet") return renderFleet();
   if (page === "measurement") return renderMeasurement();
+  if (page === "data-lab") return renderDataLab();
   if (page === "evidence") return renderEvidence();
   if (page === "pilot") return renderPilot();
-  return renderDictionary();
+  if (page === "dictionary") return renderDictionary();
+  return renderMethods();
+}
+
+function syncTopbarControls() {
+  const roleSelect = document.getElementById("role-select");
+  if (roleSelect) {
+    roleSelect.innerHTML = CONTENT.roles
+      .map(
+        (role) =>
+          `<option value="${role.id}" ${role.id === state.role ? "selected" : ""}>${escapeHtml(t(role.label))}</option>`,
+      )
+      .join("");
+  }
+  document.getElementById("language-toggle").textContent =
+    state.lang === "zh" ? "中文 / EN" : "EN / 中文";
+  document.querySelectorAll(".nav-button").forEach((button) => {
+    const label = button.querySelector("span");
+    if (label && PAGE_TITLES[button.dataset.page]) {
+      label.textContent = t(PAGE_TITLES[button.dataset.page]);
+    }
+  });
+  document.querySelector(".brand div span").textContent = t(
+    "Battery evidence prototype",
+  );
+  const sidebarNote = document.querySelector(".sidebar-note");
+  if (sidebarNote) {
+    sidebarNote.querySelector("strong").textContent = t("Synthetic data only");
+    document.querySelector(".sidebar-note > div > span").textContent = t(
+      "No personal or aircraft operating data",
+    );
+  }
+  const status = document.getElementById("service-status");
+  status.innerHTML = `<i data-lucide="circle-check"></i> ${escapeHtml(t("Browser prototype ready"))}`;
+  document.querySelector(".notice").textContent = t(
+    "Synthetic engineering prototype. Measurements and pilot metrics are generated for workflow demonstration and are not aircraft operating data.",
+  );
+  const roleLabel = document.querySelector(".compact-control span");
+  if (roleLabel) roleLabel.textContent = t("Current role");
 }
 
 function renderPage() {
   const page = PAGE_TITLES[state.page] ? state.page : "overview";
   state.page = page;
-  document.getElementById("page-title").textContent = PAGE_TITLES[page];
+  document.getElementById("page-title").textContent = t(PAGE_TITLES[page]);
   document.getElementById("page-content").innerHTML = pageHtml(page);
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === page);
   });
   bindPageEvents();
+  syncTopbarControls();
+  translateDom();
   if (window.lucide) window.lucide.createIcons();
   if (page === "evidence") updateEvidenceHash();
 }
@@ -820,6 +1423,52 @@ function bindPackTabs() {
 function bindPageEvents() {
   bindPackTabs();
 
+  document.getElementById("start-guided-demo")?.addEventListener("click", () => {
+    state.demoStep = 0;
+    saveValue("cadtfDemoStep", state.demoStep);
+    navigate("guided");
+  });
+
+  document.getElementById("demo-open")?.addEventListener("click", () => {
+    const targets = [
+      { pack: "BAT-001", page: "measurement" },
+      { pack: "BAT-001", page: "fleet" },
+      { pack: "BAT-002", page: "measurement" },
+      { pack: "BAT-002", page: "evidence" },
+      { pack: "BAT-002", page: "evidence" },
+      { pack: "BAT-002", page: "pilot" },
+    ];
+    const target = targets[clamp(state.demoStep, 0, targets.length - 1)];
+    APP.selectedPack = target.pack;
+    if (state.demoStep === 1) {
+      const pack = getPack("BAT-001");
+      pack.config = "CONF-C";
+      state.estimates[pack.id] = calculateEstimate(pack, pack.measurement);
+      recordAudit("DEMO_CONFIGURATION_CHANGED", pack.id, {
+        configuration_revision: "CONF-C",
+      });
+    }
+    navigate(target.page);
+  });
+
+  document.getElementById("demo-prev")?.addEventListener("click", () => {
+    state.demoStep = Math.max(0, state.demoStep - 1);
+    saveValue("cadtfDemoStep", state.demoStep);
+    renderPage();
+  });
+
+  document.getElementById("demo-next")?.addEventListener("click", () => {
+    state.demoStep = Math.min(5, state.demoStep + 1);
+    saveValue("cadtfDemoStep", state.demoStep);
+    renderPage();
+  });
+
+  document.getElementById("demo-restart")?.addEventListener("click", () => {
+    state.demoStep = 0;
+    saveValue("cadtfDemoStep", state.demoStep);
+    renderPage();
+  });
+
   const fleetForm = document.getElementById("fleet-form");
   if (fleetForm) {
     let preview = null;
@@ -835,7 +1484,7 @@ function bindPageEvents() {
       preview = { config, software, calibration, result };
       document.getElementById("fleet-result").innerHTML = `
         ${statusBadge(result.validation.status)}
-        <p>${escapeHtml(result.advisory)}</p>
+        <p>${escapeHtml(t(result.advisory))}</p>
         ${
           result.validation.issues.length
             ? `<ul class="issue-list">${result.validation.issues
@@ -851,6 +1500,10 @@ function bindPageEvents() {
 
     document.getElementById("apply-fleet").addEventListener("click", () => {
       const pack = getPack();
+      if (!currentRole().canEdit) {
+        showToast("The current role cannot change configuration records.");
+        return;
+      }
       if (!preview) {
         showToast("Run compatibility check first.");
         return;
@@ -859,6 +1512,11 @@ function bindPageEvents() {
       pack.software = preview.software;
       pack.calibration = preview.calibration;
       state.estimates[pack.id] = calculateEstimate(pack, pack.measurement);
+      recordAudit("CONFIGURATION_CHANGED", pack.id, {
+        configuration_revision: preview.config,
+        software_version: preview.software,
+        calibration_valid: preview.calibration,
+      });
       showToast("Configuration change applied in this browser.");
       renderPage();
     });
@@ -879,9 +1537,17 @@ function bindPageEvents() {
     });
     measurementForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!currentRole().canEdit) {
+        showToast("The current role cannot add measurement records.");
+        return;
+      }
       const pack = getPack();
       pack.measurement = readMeasurement();
       state.estimates[pack.id] = calculateEstimate(pack, pack.measurement);
+      recordAudit("ESTIMATE_CREATED", pack.id, {
+        batch: pack.measurement.batch,
+        status: state.estimates[pack.id].validation.status,
+      });
       document.getElementById("estimate-result").innerHTML =
         estimateResultHtml(pack, state.estimates[pack.id]);
       if (window.lucide) window.lucide.createIcons();
@@ -911,10 +1577,157 @@ function bindPageEvents() {
     });
   }
 
+  const dataFile = document.getElementById("data-file");
+  const dropZone = document.getElementById("data-drop-zone");
+  document.getElementById("choose-data-file")?.addEventListener("click", () => {
+    dataFile?.click();
+  });
+  dropZone?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    dropZone.classList.add("dragover");
+  });
+  dropZone?.addEventListener("dragleave", () => {
+    dropZone.classList.remove("dragover");
+  });
+  dropZone?.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    dropZone.classList.remove("dragover");
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    try {
+      state.importedRows = await parseDataFile(file);
+      recordAudit("DATA_FILE_LOADED", "MULTI", {
+        file: file.name,
+        rows: state.importedRows.length,
+      });
+      renderPage();
+      showToast(`${state.importedRows.length} rows loaded.`);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  dataFile?.addEventListener("change", async () => {
+    const file = dataFile.files[0];
+    if (!file) return;
+    try {
+      state.importedRows = await parseDataFile(file);
+      recordAudit("DATA_FILE_LOADED", "MULTI", {
+        file: file.name,
+        rows: state.importedRows.length,
+      });
+      renderPage();
+      showToast(`${state.importedRows.length} rows loaded.`);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document
+    .getElementById("download-data-template")
+    ?.addEventListener("click", () => {
+      const template = [
+        {
+          pack_id: "BAT-001",
+          batch_id: "LAB-CSV-001",
+          measured_at: "2026-09-16T00:00:00+00:00",
+          capacity_ah: 18.6,
+          resistance_mohm: 21.4,
+          min_temp_c: -5,
+          max_temp_c: 38,
+          charge_c_rate: 0.8,
+          discharge_c_rate: 1.4,
+          cycles: 420,
+          provenance: "Synthetic user import",
+          notes: "",
+        },
+      ];
+      if (window.XLSX) {
+        const sheet = XLSX.utils.json_to_sheet(template);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, sheet, "measurements");
+        XLSX.writeFile(workbook, "cadtf_measurement_template.xlsx");
+      } else {
+        downloadText(
+          "cadtf_measurement_template.csv",
+          Object.keys(template[0]).join(",") +
+            "\n" +
+            Object.values(template[0])
+              .map((value) => `"${value}"`)
+              .join(","),
+          "text/csv",
+        );
+      }
+    });
+  document
+    .getElementById("apply-import-row")
+    ?.addEventListener("click", () => {
+      if (!state.importedRows) return;
+      if (!currentRole().canEdit) {
+        showToast("The current role cannot apply imported measurements.");
+        return;
+      }
+      const validation = validateImportedRows(state.importedRows);
+      const selectedRow = Number(
+        document.getElementById("import-row-select")?.value || 0,
+      );
+      const first =
+        validation.validRows.find(
+          (row, index) => index + 2 === selectedRow,
+        ) || validation.validRows[0];
+      if (!first) {
+        showToast("No valid row is available.");
+        return;
+      }
+      const pack = getPack(String(first.pack_id));
+      pack.measurement = {
+        batch: first.batch_id,
+        capacity: Number(first.capacity_ah),
+        resistance: Number(first.resistance_mohm),
+        minTemp: Number(first.min_temp_c),
+        maxTemp: Number(first.max_temp_c),
+        charge: Number(first.charge_c_rate),
+        discharge: Number(first.discharge_c_rate),
+        cycles: Number(first.cycles),
+        measuredAt: first.measured_at,
+        provenance: first.provenance,
+        notes: first.notes || "",
+      };
+      state.estimates[pack.id] = calculateEstimate(pack, pack.measurement);
+      recordAudit("MEASUREMENT_IMPORTED", pack.id, {
+        batch: first.batch_id,
+        source: first.provenance,
+      });
+      APP.selectedPack = pack.id;
+      navigate("measurement");
+      showToast("Validated measurement applied.");
+    });
+  document
+    .getElementById("download-validated-data")
+    ?.addEventListener("click", () => {
+      if (!state.importedRows) return;
+      const validation = validateImportedRows(state.importedRows);
+      downloadText(
+        "cadtf_validated_measurements.json",
+        JSON.stringify(
+          {
+            exported_at: new Date().toISOString(),
+            valid_rows: validation.validRows,
+            findings: validation.findings,
+          },
+          null,
+          2,
+        ),
+        "application/json",
+      );
+    });
+
   const reviewForm = document.getElementById("review-form");
   if (reviewForm) {
     reviewForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!currentRole().canReview) {
+        showToast("The current role cannot record review dispositions.");
+        return;
+      }
       const pack = getPack();
       const disposition = document.getElementById("disposition").value;
       const rationale = document.getElementById("rationale").value.trim();
@@ -930,12 +1743,18 @@ function bindPageEvents() {
       }
       state.reviews[pack.id] = {
         reviewer,
+        role: currentRole().label,
         disposition,
         rationale,
         signature,
         createdAt: new Date().toISOString(),
       };
       saveReviews();
+      recordAudit("REVIEW_RECORDED", pack.id, {
+        disposition,
+        reviewer,
+        signature,
+      });
       showToast("Review disposition recorded in this browser.");
       renderPage();
     });
@@ -952,6 +1771,29 @@ function bindPageEvents() {
         "application/json",
       );
     });
+
+  document.getElementById("copy-case-link")?.addEventListener("click", async () => {
+    const pack = getPack();
+    const payload = {
+      packId: pack.id,
+      configuration: pack.config,
+      software: pack.software,
+      calibration: pack.calibration,
+      measurement: pack.measurement,
+      role: state.role,
+    };
+    const encoded = btoa(
+      unescape(encodeURIComponent(JSON.stringify(payload))),
+    );
+    const url = `${location.origin}${location.pathname}?case=${encodeURIComponent(encoded)}#evidence`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Share link copied.");
+    } catch {
+      downloadText("cadtf_share_link.txt", url, "text/plain");
+      showToast("Clipboard unavailable; share link downloaded.");
+    }
+  });
 
   document
     .getElementById("download-dictionary-json")
@@ -986,6 +1828,21 @@ function bindPageEvents() {
     });
 
   document
+    .getElementById("download-dictionary-xlsx")
+    ?.addEventListener("click", () => {
+      const rows = APP.dictionary.map(([field, chinese, unit, purpose]) => ({
+        field,
+        chinese,
+        unit,
+        purpose,
+      }));
+      const sheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, "dictionary");
+      XLSX.writeFile(workbook, "cadtf_evidence_dictionary.xlsx");
+    });
+
+  document
     .getElementById("download-all-json")
     ?.addEventListener("click", () => {
       const output = {
@@ -994,6 +1851,7 @@ function bindPageEvents() {
         battery_packs: APP.packs,
         estimates: state.estimates,
         reviews: state.reviews,
+        audit: state.audit,
         dictionary: APP.dictionary,
       };
       downloadText(
@@ -1003,11 +1861,64 @@ function bindPageEvents() {
       );
     });
 
+  document.getElementById("download-all-xlsx")?.addEventListener("click", () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        APP.packs.map((pack) => ({
+          pack_id: pack.id,
+          chemistry: pack.chemistry,
+          aircraft: pack.aircraft,
+          configuration: pack.config,
+          software: pack.software,
+          calibration_valid: pack.calibration,
+          ...pack.measurement,
+        })),
+      ),
+      "assets",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        Object.entries(state.estimates).map(([packId, estimate]) => ({
+          pack_id: packId,
+          soh_pct: estimate.soh,
+          uncertainty_pct: estimate.uncertainty,
+          usable_power_pct: estimate.usablePower,
+          remaining_cycles: estimate.remainingCycles,
+          validation_status: estimate.validation.status,
+        })),
+      ),
+      "estimates",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        Object.entries(state.reviews).map(([packId, review]) => ({
+          pack_id: packId,
+          ...review,
+        })),
+      ),
+      "reviews",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(state.audit),
+      "audit",
+    );
+    XLSX.writeFile(workbook, "cadtf_browser_prototype_export.xlsx");
+  });
+
   document
     .getElementById("reset-browser-data")
     ?.addEventListener("click", () => {
       state.reviews = {};
+      state.audit = [];
+      state.evidenceHistory = {};
       saveReviews();
+      saveValue("cadtfAudit", state.audit);
+      saveValue("cadtfEvidenceHistory", state.evidenceHistory);
       showToast("Browser review records reset.");
       renderPage();
     });
@@ -1032,8 +1943,24 @@ function setMeasurementForm(values) {
 async function updateEvidenceHash() {
   const target = document.getElementById("evidence-hash");
   if (!target) return;
-  const evidence = await buildEvidencePackage(getPack());
+  const pack = getPack();
+  const evidence = await buildEvidencePackage(pack);
+  state.currentEvidence = evidence;
   target.textContent = evidence.package_hash;
+  const currentTarget = document.getElementById("current-package-hash");
+  if (currentTarget) currentTarget.textContent = evidence.package_hash;
+  const previous = state.evidenceHistory[pack.id];
+  if (!previous) {
+    state.evidenceHistory[pack.id] = evidence.package_hash;
+    saveValue("cadtfEvidenceHistory", state.evidenceHistory);
+  } else if (previous !== evidence.package_hash) {
+    recordAudit("EVIDENCE_CHANGED", pack.id, {
+      previous_hash: previous,
+      current_hash: evidence.package_hash,
+    });
+    state.evidenceHistory[pack.id] = evidence.package_hash;
+    saveValue("cadtfEvidenceHistory", state.evidenceHistory);
+  }
 }
 
 function downloadText(filename, text, type) {
@@ -1066,6 +1993,46 @@ function navigate(page) {
   }
 }
 
+document.getElementById("language-toggle").addEventListener("click", () => {
+  state.lang = state.lang === "zh" ? "en" : "zh";
+  saveValue("cadtfLang", state.lang);
+  renderPage();
+});
+
+document.getElementById("role-select").addEventListener("change", (event) => {
+  state.role = event.target.value;
+  saveValue("cadtfRole", state.role);
+  recordAudit("ROLE_CHANGED", "SYSTEM", { role: state.role });
+  renderPage();
+});
+
+function applySharedCase() {
+  const params = new URLSearchParams(location.search);
+  const requestedLanguage = params.get("lang");
+  if (requestedLanguage === "zh" || requestedLanguage === "en") {
+    state.lang = requestedLanguage;
+    saveValue("cadtfLang", state.lang);
+  }
+  const encoded = params.get("case");
+  if (!encoded) return;
+  try {
+    const payload = JSON.parse(
+      decodeURIComponent(escape(atob(decodeURIComponent(encoded)))),
+    );
+    const pack = getPack(payload.packId);
+    if (!pack || pack.id !== payload.packId) return;
+    pack.config = payload.configuration;
+    pack.software = payload.software;
+    pack.calibration = Boolean(payload.calibration);
+    pack.measurement = { ...pack.measurement, ...payload.measurement };
+    state.estimates[pack.id] = calculateEstimate(pack, pack.measurement);
+    APP.selectedPack = pack.id;
+    showToast("Shared case loaded.");
+  } catch {
+    showToast("Shared case link could not be read.");
+  }
+}
+
 document.querySelectorAll(".nav-button").forEach((button) => {
   button.addEventListener("click", () => navigate(button.dataset.page));
 });
@@ -1077,6 +2044,7 @@ window.addEventListener("hashchange", () => {
 
 try {
   ensureEstimates();
+  applySharedCase();
   state.page = location.hash.replace("#", "") || "overview";
   renderPage();
 } catch (error) {
