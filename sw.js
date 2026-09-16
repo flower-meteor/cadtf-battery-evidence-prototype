@@ -1,10 +1,12 @@
-const CACHE_NAME = "cadtf-v5";
+const CACHE_NAME = "cadtf-v7";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./agent.css",
   "./content.js",
   "./app.js",
+  "./agent.js",
   "./lucide.min.js",
   "./xlsx.full.min.js",
   "./manifest.webmanifest",
