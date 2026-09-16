@@ -15,6 +15,11 @@ window.CADTF_CONTENT = {
       "Synthetic data only": "仅使用合成数据",
       "No personal or aircraft operating data": "不含个人或飞机运行数据",
       "Browser prototype ready": "浏览器原型已就绪",
+      "Install App": "安装 App",
+      "App installation is available from the browser menu.":
+        "可通过浏览器菜单安装 App。",
+      "On iPhone or iPad: Share, then Add to Home Screen.":
+        "在 iPhone 或 iPad 上：点击分享，然后选择“添加到主屏幕”。",
       open: "待处理",
       Pack: "电池包",
       SOH: "健康状态",

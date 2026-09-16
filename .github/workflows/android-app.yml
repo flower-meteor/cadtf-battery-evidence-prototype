@@ -1,0 +1,60 @@
+name: Build Android App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android-app.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Prepare APK
+        run: |
+          mkdir -p ../dist
+          cp app/build/outputs/apk/debug/app-debug.apk ../dist/CADTF-2.0.0.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CADTF-Android-APK
+          path: dist/CADTF-2.0.0.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v2.0.0
+          name: CADTF Android App 2.0.0
+          body: |
+            CADTF Android app built automatically from the public browser prototype.
+
+            This APK is a direct-install debug build. Android may ask you to allow installation from the current browser or file manager.
+          files: dist/CADTF-2.0.0.apk
+          make_latest: true

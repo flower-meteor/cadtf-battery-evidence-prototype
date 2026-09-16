@@ -1371,6 +1371,8 @@ function syncTopbarControls() {
   }
   document.getElementById("language-toggle").textContent =
     state.lang === "zh" ? "中文 / EN" : "EN / 中文";
+  document.getElementById("install-app").innerHTML =
+    `<i data-lucide="download"></i> ${escapeHtml(t("Install App"))}`;
   document.querySelectorAll(".nav-button").forEach((button) => {
     const label = button.querySelector("span");
     if (label && PAGE_TITLES[button.dataset.page]) {
@@ -1975,6 +1977,8 @@ function downloadText(filename, text, type) {
 }
 
 let toastTimer;
+let deferredInstallPrompt = null;
+
 function showToast(message) {
   const toast = document.getElementById("toast");
   toast.textContent = message;
@@ -1982,6 +1986,34 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  document.getElementById("install-app").hidden = false;
+  if (window.lucide) window.lucide.createIcons();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  document.getElementById("install-app").hidden = true;
+  showToast("CADTF was installed.");
+});
+
+document.getElementById("install-app").addEventListener("click", async () => {
+  if (!deferredInstallPrompt) {
+    showToast(
+      /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? t("On iPhone or iPad: Share, then Add to Home Screen.")
+        : t("App installation is available from the browser menu."),
+    );
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById("install-app").hidden = true;
+});
 
 function navigate(page) {
   const next = PAGE_TITLES[page] ? page : "overview";
