@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="CADTF battery-health evidence prototype"
+    />
+    <title>CADTF Battery Evidence Prototype</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23173244'/%3E%3Cpath d='M43 20a16 16 0 1 0 3 18h-8a8 8 0 1 1-2-14z' fill='%2368c69b'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark">C</span>
+          <div>
+            <strong>CADTF</strong>
+            <span>Battery evidence prototype</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" id="nav-list">
+          <button class="nav-button active" data-page="overview">
+            <i data-lucide="layout-dashboard"></i><span>Overview</span>
+          </button>
+          <button class="nav-button" data-page="fleet">
+            <i data-lucide="plane"></i><span>Fleet &amp; Configuration</span>
+          </button>
+          <button class="nav-button" data-page="measurement">
+            <i data-lucide="activity"></i><span>Measurement &amp; Estimate</span>
+          </button>
+          <button class="nav-button" data-page="evidence">
+            <i data-lucide="link-2"></i><span>Evidence &amp; Review</span>
+          </button>
+          <button class="nav-button" data-page="pilot">
+            <i data-lucide="chart-no-axes-combined"></i
+            ><span>Pilot Evaluation</span>
+          </button>
+          <button class="nav-button" data-page="dictionary">
+            <i data-lucide="book-open"></i><span>Dictionary &amp; Export</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <span class="dot"></span>
+          <div>
+            <strong>Synthetic data only</strong>
+            <span>No personal or aircraft operating data</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">China Airworthiness Digital Twin Framework</p>
+            <h1 id="page-title">System overview</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="status-chip" id="service-status">
+              <i data-lucide="circle-check"></i> Browser prototype ready
+            </span>
+          </div>
+        </header>
+
+        <section class="notice">
+          Synthetic engineering prototype. Measurements and pilot metrics are
+          generated for workflow demonstration and are not aircraft operating
+          data.
+        </section>
+
+        <div id="page-content"></div>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="lucide.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

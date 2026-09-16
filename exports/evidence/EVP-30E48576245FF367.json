@@ -1,0 +1,109 @@
+{
+  "package_version": "1.0",
+  "package_id": "EVP-30E48576245FF367",
+  "created_at": "2026-09-15T18:01:20.448637Z",
+  "physical_asset": {
+    "pack_id": "BAT-002",
+    "manufacturer": "Demo Cell Systems",
+    "chemistry": "NMC",
+    "rated_capacity_ah": 20.0,
+    "baseline_resistance_mohm": 20.0,
+    "aircraft_id": "TRAIN-02",
+    "configuration_revision": "CONF-B",
+    "software_version": "2.0.1",
+    "installed_at": "2025-12-29T18:01:20.368255+00:00",
+    "calibration_valid": true,
+    "calibration_date": "2026-05-15"
+  },
+  "input_record": {
+    "measurement_id": 2,
+    "batch_id": "LAB-002",
+    "measured_at": "2026-09-14T18:01:20.368255+00:00",
+    "capacity_ah": 15.9,
+    "resistance_mohm": 29.4,
+    "temperature_range_c": [
+      1.0,
+      51.5
+    ],
+    "charge_c_rate": 1.1,
+    "discharge_c_rate": 2.2,
+    "cycles": 1180,
+    "provenance": "Synthetic high-stress case for prototype demonstration",
+    "source_hash": "95e8c3836628f43cc3fae72aec6e925af93692f7db585db378b10ec3dd20b6e1"
+  },
+  "model_record": {
+    "model_id": "BATT-NMC-M1",
+    "model_name": "NMC equivalent-circuit baseline",
+    "algorithm": "Capacity-resistance weighted estimator v1",
+    "chemistry": "NMC",
+    "validation_domain": {
+      "temperature_c": [
+        -10.0,
+        45.0
+      ],
+      "charge_c_rate": 1.0,
+      "discharge_c_rate": 2.0,
+      "max_cycles": 1200,
+      "allowed_config_revisions": [
+        "CONF-A",
+        "CONF-B"
+      ],
+      "allowed_software_major": [
+        "2"
+      ]
+    },
+    "minimum_soh_pct": 80.0
+  },
+  "validation_record": {
+    "status": "blocked",
+    "issues": [
+      {
+        "code": "TEMPERATURE_OUT_OF_DOMAIN",
+        "severity": "blocked",
+        "message": "Measured 1.0 to 51.5 C falls outside the validated -10.0 to 45.0 C domain."
+      },
+      {
+        "code": "CHARGE_RATE_OUT_OF_DOMAIN",
+        "severity": "blocked",
+        "message": "Charge rate 1.10C exceeds the validated 1.00C limit."
+      },
+      {
+        "code": "DISCHARGE_RATE_OUT_OF_DOMAIN",
+        "severity": "blocked",
+        "message": "Discharge rate 2.20C exceeds the validated 2.00C limit."
+      },
+      {
+        "code": "CYCLES_NEAR_LIMIT",
+        "severity": "review",
+        "message": "Cycle count is close to the validated boundary."
+      }
+    ],
+    "checks": {
+      "chemistry": "pass",
+      "temperature_envelope": "blocked",
+      "charge_rate": "blocked",
+      "discharge_rate": "blocked",
+      "cycle_life": "review",
+      "configuration_revision": "pass",
+      "software_baseline": "pass",
+      "sensor_calibration": "pass",
+      "provenance": "pass"
+    }
+  },
+  "estimate_record": {
+    "soh_pct": 76.6,
+    "capacity_health_pct": 79.5,
+    "resistance_health_pct": 68.0,
+    "usable_power_pct": 77.6,
+    "uncertainty_pct": 13.1,
+    "indicative_remaining_cycles": 0,
+    "advisory": "Advisory suppressed: the input is outside the validated model domain. Escalate to authorised engineering review."
+  },
+  "review_record": {
+    "required": true,
+    "state": "pending",
+    "authorised_disposition": null
+  },
+  "traceability_score_pct": 100.0,
+  "package_hash": "ae2c501fb408bc6e93aedd93995ced6fc1c7c66679d8d39c3bb751cffba4c2ab"
+}

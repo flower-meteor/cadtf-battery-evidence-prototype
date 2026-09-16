@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-09-15T18:03:48.758112+00:00",
+  "python": "3.12.8",
+  "test_summary": {
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "metrics": {
+    "aircraft_count": 2,
+    "pack_count": 3,
+    "estimate_count": 3,
+    "valid_estimate_count": 2,
+    "pending_review_count": 1,
+    "mean_evidence_score_pct": 100.0
+  },
+  "evidence": [
+    {
+      "estimate_id": 3,
+      "pack_id": "BAT-003",
+      "validation_status": "valid",
+      "soh_pct": 95.4,
+      "evidence_hash": "0e3e847ea84b5ab47358f9eead794d48cfd320c1b0b07e127fc1475856ecfd34",
+      "verified": true
+    },
+    {
+      "estimate_id": 2,
+      "pack_id": "BAT-002",
+      "validation_status": "blocked",
+      "soh_pct": 76.6,
+      "evidence_hash": "ae2c501fb408bc6e93aedd93995ced6fc1c7c66679d8d39c3bb751cffba4c2ab",
+      "verified": true
+    },
+    {
+      "estimate_id": 1,
+      "pack_id": "BAT-001",
+      "validation_status": "valid",
+      "soh_pct": 93.8,
+      "evidence_hash": "b582e143018737aa1c46d7776f24f25dcb33221b89981b8102948ca2674bb9cb",
+      "verified": true
+    }
+  ],
+  "hashes": {
+    "database": "ac1de53cb475785ca39c9c56da4cd0eedb1e4dbc82c374fac65f7560183e2735",
+    "workbook": "e2991f94acada2c72da4ce95d1288f668da740999a14910cc298c64aa6a00d17",
+    "evidence_manifest": "96e1606d20f2cf1c7f642357a5845656b27eeaebb136b3a0fb87d0b4ac8f9887"
+  }
+}

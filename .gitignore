@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/secrets.toml
+streamlit_startup.stdout.log
+streamlit_startup.stderr.log
+visual_check/
+*.lnk

@@ -1,0 +1,88 @@
+{
+  "package_version": "1.0",
+  "package_id": "EVP-11C8D24A40782A70",
+  "created_at": "2026-09-15T18:01:20.471454Z",
+  "physical_asset": {
+    "pack_id": "BAT-003",
+    "manufacturer": "Demo Cell Systems",
+    "chemistry": "LFP",
+    "rated_capacity_ah": 22.0,
+    "baseline_resistance_mohm": 18.0,
+    "aircraft_id": "TRAIN-01",
+    "configuration_revision": "CONF-L1",
+    "software_version": "3.0.0",
+    "installed_at": "2026-08-21T18:01:20.368255+00:00",
+    "calibration_valid": true,
+    "calibration_date": "2026-08-01"
+  },
+  "input_record": {
+    "measurement_id": 3,
+    "batch_id": "LAB-003",
+    "measured_at": "2026-09-12T18:01:20.368255+00:00",
+    "capacity_ah": 20.9,
+    "resistance_mohm": 18.6,
+    "temperature_range_c": [
+      -8.0,
+      36.0
+    ],
+    "charge_c_rate": 0.75,
+    "discharge_c_rate": 1.35,
+    "cycles": 260,
+    "provenance": "Synthetic LFP laboratory summary for prototype demonstration",
+    "source_hash": "f7712758a9c7ea447cd11226edb294c0aaa52521bc506f38c1d9c61f0221c6e2"
+  },
+  "model_record": {
+    "model_id": "BATT-LFP-M1",
+    "model_name": "LFP equivalent-circuit baseline",
+    "algorithm": "Capacity-resistance weighted estimator v1",
+    "chemistry": "LFP",
+    "validation_domain": {
+      "temperature_c": [
+        -15.0,
+        50.0
+      ],
+      "charge_c_rate": 1.0,
+      "discharge_c_rate": 2.0,
+      "max_cycles": 2500,
+      "allowed_config_revisions": [
+        "CONF-L1"
+      ],
+      "allowed_software_major": [
+        "2",
+        "3"
+      ]
+    },
+    "minimum_soh_pct": 80.0
+  },
+  "validation_record": {
+    "status": "valid",
+    "issues": [],
+    "checks": {
+      "chemistry": "pass",
+      "temperature_envelope": "pass",
+      "charge_rate": "pass",
+      "discharge_rate": "pass",
+      "cycle_life": "pass",
+      "configuration_revision": "pass",
+      "software_baseline": "pass",
+      "sensor_calibration": "pass",
+      "provenance": "pass"
+    }
+  },
+  "estimate_record": {
+    "soh_pct": 95.4,
+    "capacity_health_pct": 95.0,
+    "resistance_health_pct": 96.8,
+    "usable_power_pct": 98.5,
+    "uncertainty_pct": 2.3,
+    "indicative_remaining_cycles": 881,
+    "advisory": "Within the validated domain. Continue normal monitoring and approved maintenance intervals."
+  },
+  "review_record": {
+    "required": false,
+    "state": "optional",
+    "authorised_disposition": null
+  },
+  "traceability_score_pct": 100.0,
+  "package_hash": "0e3e847ea84b5ab47358f9eead794d48cfd320c1b0b07e127fc1475856ecfd34"
+}
