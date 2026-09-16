@@ -12,6 +12,24 @@ https://flower-meteor.github.io/cadtf-battery-evidence-prototype/
 
 该版本完全在浏览器中运行，不需要本地 Python、命令行或启动脚本。互动产生的审查记录只保存在当前浏览器。
 
+## Android App
+
+APK 下载：
+
+https://github.com/flower-meteor/cadtf-battery-evidence-prototype/releases/download/android-v2.0.0/CADTF-2.0.0.apk
+
+发布页：
+
+https://github.com/flower-meteor/cadtf-battery-evidence-prototype/releases/tag/android-v2.0.0
+
+APK SHA-256：
+
+`0b1459e6ddf01e82cc167cecc19b598c09a77235caa061ff88767bc06b728b01`
+
+这是直接安装的 debug 签名版本，适合个人测试。Android 首次安装时需要允许当前浏览器或文件管理器“安装未知应用”。正式上架应用商店需要单独的 release/AAB 签名和开发者账号。
+
+若使用 iPhone、iPad 或其他手机，也可以直接在浏览器中打开公网版，然后选择“安装 App”或浏览器菜单中的“添加到主屏幕”。
+
 浏览器版还提供：
 
 - 六步引导式案例演示；
